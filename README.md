@@ -1,5 +1,15 @@
 # s2aenv - saml2aws version manager
 
+## install
+
+```
+sudo git clone https://github.com/briceburg/s2aenv.git /opt/s2aenv
+ln -fs /opt/s2aenv/s2aenv /usr/local/bin/
+```
+
+(I haven't published a release, so we're cloning from git and symlinking the script to /usr/local/bin/s2aenv)
+
+
 ## usage
 
 ```
@@ -36,7 +46,13 @@ v2.8.1
 v2.9.0
 ```
 
-### install a version
+### install the latest version of saml2aws
+
+````
+$ s2aenv install latest
+```
+
+### install a version particular version
 
 ```
 $ s2aenv install v2.9.0
