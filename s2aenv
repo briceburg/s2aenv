@@ -3,7 +3,7 @@
 die/help() {
   cat <<-EOF
 s2aenv - saml2aws version manager, without support for .s2aenv hinting.
-Usage: tfenv <command> [<options>]
+Usage: $__script <command> [<options>]
 
 Commands:
    install <ver|latest> Install (and use) specific version saml2aws
