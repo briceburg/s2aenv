@@ -1,4 +1,5 @@
-#!/usr/bin/env bash -eo pipefail
+#!/usr/bin/env bash
+set -eo pipefail
 
 die/help() {
   cat <<-EOF
@@ -102,7 +103,7 @@ cmd/use(){
   local src="$PROJECT_ROOT/versions/$version/saml2aws"
   local dest="/usr/local/bin/saml2aws"
 
-  [ -e "$src" ] || die "invalid version: $version"
+  [ -e "$src" ] || die "invalid version: $version" "has it been downloaded?"
   ln -fs "$src" "$PROJECT_ROOT/current"
 
   [[ -L "$dest" && "$(readlink -- "$dest")" == "$PROJECT_ROOT/current" ]] || {
@@ -116,7 +117,7 @@ get/tags()(
     git clone https://github.com/Versent/saml2aws.git "$PROJECT_ROOT/git"
   cd "$PROJECT_ROOT/git"
   git fetch --tags
-  git tag
+  git tag | sort -V
 )
 get/versions()(
   cd "$PROJECT_ROOT/versions"
