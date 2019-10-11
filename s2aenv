@@ -1,0 +1,128 @@
+#!/usr/bin/env bash -eo pipefail
+
+die/help() {
+  cat <<-EOF
+s2aenv - saml2aws version manager, without support for .s2aenv hinting.
+Usage: tfenv <command> [<options>]
+
+Commands:
+   install <ver|latest> Install (and use) specific version saml2aws
+   use <ver|latest>     Switch a version to use
+   uninstall <ver>      Uninstall a specific version of saml2aws
+   list                 List all installed versions
+   list-remote          List all installable versions
+
+EOF
+
+  [ -z "$1" ] || die "$1"
+  exit
+}
+
+main(){
+  readonly PROJECT_ROOT="$HOME/.s2aenv"
+  readonly __script=$(basename "$0")
+
+  [ -d "$PROJECT_ROOT" ] || mkdir -p "$PROJECT_ROOT"
+  [ -d "$PROJECT_ROOT/versions" ] || mkdir "$PROJECT_ROOT/versions"
+
+  local cmd=
+  local cmd_args=()
+  while [ $# -ne 0 ]; do
+    case "$1" in
+      -h|--help)
+        die/help ;;
+      -*)
+        die/help "unknown option: $1" ;;
+      install|list|list-remote|uninstall|use)
+        cmd="$1" ;;
+      *)
+        case "$cmd" in
+          install|uninstall|use) cmd_args+=( "$1") ;;
+          *) die/help die/help "unknown command: $1" ;;
+        esac
+        ;;
+    esac
+    shift
+  done
+
+  [ -n "$cmd" ] || die/help "please provide a command"
+
+  cmd/$cmd "${cmd_args[@]}"
+}
+
+cmd/install()(
+  local version="$1"
+  [ -n "$version" ] || die "please provide a version, or 'latest' to use latest"
+  [ "$version" == "latest" ] && version="$(get/tags | tail -1)"
+  [[ "$version" == v* ]] && version="${version:1}"
+  log "installing version: $version"
+
+  local os="linux"
+  local path="$PROJECT_ROOT/versions/$version"
+  [[ "$OSTYPE" =~ darwin|macos* ]] && os="darwin"
+
+  rm -rf "$path"
+  mkdir -p "$path"
+  cd "$path"
+  curl -Lf "https://github.com/Versent/saml2aws/releases/download/v${version}/saml2aws_${version}_${os}_amd64.tar.gz" | \
+    tar xz
+
+  cmd/use "$version"
+)
+
+cmd/list(){
+  echo "# installed versions" >&2
+  get/versions
+}
+
+cmd/list-remote(){
+  echo "# available versions" >&2
+  get/tags
+}
+
+cmd/uninstall(){
+  version="$1"
+  [ -n "$version" ] || die "please provide a version"
+  [[ "$version" == v* ]] && version="${version:1}"
+  log "removing version: $version"
+
+  rm -rf "$PROJECT_ROOT/versions/$version"
+
+  # if current link breaks (we removed current version), switch versions
+  [ -e "$PROJECT_ROOT/current" ] || cmd/use "latest"
+}
+
+cmd/use(){
+  version="$1"
+  [ -n "$version" ] || die "please provide a version, or 'latest' to use latest installed version"
+  [ "$version" == "latest" ] && version="$(get/versions | tail -1)"
+  [[ "$version" == v* ]] && version="${version:1}"
+  log "activating version: $version"
+
+  local src="$PROJECT_ROOT/versions/$version/saml2aws"
+  local dest="/usr/local/bin/saml2aws"
+
+  [ -e "$src" ] || die "invalid version: $version"
+  ln -fs "$src" "$PROJECT_ROOT/current"
+
+  [[ -L "$dest" && "$(readlink -- "$dest")" == "$PROJECT_ROOT/current" ]] || {
+    [ -e "$dest" ] && sudo mv "$dest" "$dest.orig"
+    sudo ln -fs "$PROJECT_ROOT/current" "$dest"
+  }
+}
+
+get/tags()(
+  [ -d "$PROJECT_ROOT/git" ] || \
+    git clone https://github.com/Versent/saml2aws.git "$PROJECT_ROOT/git"
+  cd "$PROJECT_ROOT/git"
+  git fetch --tags
+  git tag
+)
+get/versions()(
+  cd "$PROJECT_ROOT/versions"
+  ls -1d */ 2>/dev/null | sed 's|/$||'
+)
+
+log(){ echo -e "$__script: $*" >&2; }
+die(){ log "$*"; exit 1; }
+main "$@"
